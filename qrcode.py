@@ -11,9 +11,9 @@ output_folder = None
 
 if len(sys.argv)>1 :
     output_folder = sys.argv[1]
-
-cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-cv2.resizeWindow('image', 960, 720)
+else:
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('image', 960, 720)
 
 dimx = 720*2
 dimy = 480*2
@@ -26,7 +26,10 @@ camera.resolution = (dimx, dimy)
 
 
 camera.framerate = 30
-#camera.shutter_speed = 8000
+camera.exposure_compensation = 24
+camera.exposure_mode = 'antishake'
+
+camera.shutter_speed = 20000
 #camera.contrast = 100
 
 #camera.image_effect = ''
@@ -43,12 +46,53 @@ orb = cv2.ORB_create(nfeatures=100, nlevels = 6, scaleFactor=1.2, patchSize=31, 
 
 kp_target = orb.detect(target_barcode, None)
 
+
+
+
+
 print([kp.size for kp in kp_target])
 
 #kp_target = cv2.KeyPoint(64,64, 63.0)
-kp_target, des_target = orb.compute(target_barcode,kp_target)
+kp_target_, des_target_ = orb.compute(target_barcode,kp_target)
 
 
+def remove_similar_feature(kp, des, threshold = 40):
+    flag = False
+    
+    print("number of kp:", len(kp))
+    
+    mark = [0] * len(kp)
+    
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+    #print(des)
+    matches_5 = bf.knnMatch(des, des, k=2)
+    
+    for matches in matches_5:
+        if matches[1].distance < threshold:
+            mark[matches[1].queryIdx] = 1
+            mark[matches[1].trainIdx] = 1
+            
+    new_kp = []
+    new_des = []
+    
+    for ind in xrange(len(mark)):
+        if mark[ind] == 0 :
+            new_kp.append(kp[ind])
+            new_des.append(des[ind])
+        else:
+            flag = True
+    
+    new_des = np.vstack(new_des)
+            
+    if flag == True and len(new_kp)>0 :
+        return remove_similar_feature(new_kp, new_des, threshold)
+    else:
+        return new_kp, new_des 
+        
+        
+
+
+kp_target, des_target = remove_similar_feature(kp_target_, des_target_, 60)
 
 
 print(len(kp_target))
@@ -71,6 +115,12 @@ for frame in camera.capture_continuous(rawCapture, format = "bgr", use_video_por
     
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
     matches_5 = bf.knnMatch(des, des_target, k=5)
+
+    if len(matches_5) == 0:
+
+        rawCapture.truncate(0)
+        continue
+
 
     matches = reduce((lambda x,y : x+y), matches_5)
     
@@ -161,8 +211,8 @@ for frame in camera.capture_continuous(rawCapture, format = "bgr", use_video_por
     if output_folder is not None :
         cv2.imwrite(output_folder+"/img%05d.jpg" % c, img3)
     
-    
-    cv2.imshow("image", img3)
+    else:
+        cv2.imshow("image", img3)
     
     t3 = time()
     
