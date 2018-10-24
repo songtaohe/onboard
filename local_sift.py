@@ -139,8 +139,8 @@ des_target = np.vstack([des1, des2])
 
 
 
-cap = cv2.VideoCapture('outdoor_example3.mov')
-#cap = cv2.VideoCapture(0)
+#cap = cv2.VideoCapture('outdoor_example2.mov')
+cap = cv2.VideoCapture(0)
 
 
 #for frame in camera.capture_continuous(rawCapture, format = "bgr", use_video_port = True):
@@ -171,6 +171,7 @@ while(cap.isOpened()):
 
     if key == ord("c"):
         c = c + 1
+        print("!!!!!!!!!!!! ", key, c)
         continue
 
     print(image.shape)

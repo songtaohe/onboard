@@ -9,11 +9,9 @@ import sys
 
 output_folder = None
 
-if len(sys.argv)>1 :
-    output_folder = sys.argv[1]
-else:
-    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('image', 1280, 700)
+
+cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+cv2.resizeWindow('image', 1280, 700)
 
 
 
@@ -81,7 +79,7 @@ def remove_similar_feature(kp, des, threshold = 40, both=True):
 
 
 
-def generate_target(filename="target_qrcode/barcode2a.png", size=96):
+def generate_target(filename="target_qrcode/barcode2a.png", size=96, threshold = 75):
 
     tmp = cv2.imread(filename)
 
@@ -100,7 +98,7 @@ def generate_target(filename="target_qrcode/barcode2a.png", size=96):
 
     
                         
-    kp_target, des_target = remove_similar_feature(kp_target_, des_target_, 75)
+    kp_target, des_target = remove_similar_feature(kp_target_, des_target_, threshold)
 
 
     return target_barcode, kp_target, des_target
@@ -113,14 +111,28 @@ kp_target = []
 des_target = []
 
 
-target_barcode, kp1, des1 = generate_target("target_qrcode/barcode2.png", size=96)
-_, kp2, des2 = generate_target("target_qrcode/barcode2_blur.png",size=96)
-#_, kp3, des3 = generate_target("target_qrcode/barcode2c.png")
-#_, kp4, des4 = generate_target("target_qrcode/barcode2e.png")
+target_type = int(sys.argv[1])
 
 
-kp_target = kp1+kp2#+kp3+kp4
-des_target = np.vstack([des1, des2])
+if target_type == 1:
+    target_barcode, kp1, des1 = generate_target("target_qrcode/barcode.png", size=108, threshold = 5)
+    #_, kp2, des2 = generate_target("target_qrcode/barcode.png",size=108, threshold = 50)
+    #_, kp3, des3 = generate_target("target_qrcode/barcode2c.png")
+    #_, kp4, des4 = generate_target("target_qrcode/barcode2e.png")
+
+
+    kp_target = kp1#+kp3+kp4
+    des_target = des1
+
+if target_type == 2:
+    target_barcode, kp1, des1 = generate_target("target_qrcode/barcode2.png", size=108, threshold = 75)
+    _, kp2, des2 = generate_target("target_qrcode/barcode2_blur.png",size=108, threshold = 75)
+    #_, kp3, des3 = generate_target("target_qrcode/barcode2c.png")
+    #_, kp4, des4 = generate_target("target_qrcode/barcode2e.png")
+
+
+    kp_target = kp1+kp2#+kp3+kp4
+    des_target = np.vstack([des1, des2])
 
 
 
@@ -139,8 +151,8 @@ des_target = np.vstack([des1, des2])
 
 
 
-cap = cv2.VideoCapture('outdoor_example3.mov')
-#cap = cv2.VideoCapture(0)
+#cap = cv2.VideoCapture('outdoor_example2.mov')
+cap = cv2.VideoCapture(0)
 
 
 #for frame in camera.capture_continuous(rawCapture, format = "bgr", use_video_port = True):
@@ -149,14 +161,16 @@ while(cap.isOpened()):
 
     ret, image_orig = cap.read()
 
+    image_orig = cv2.resize(image_orig, (1280, 720))
+
 
     image_gray = cv2.cvtColor(image_orig, cv2.COLOR_BGR2GRAY)
 
-    ret, image = cv2.threshold(image_gray,224,255,cv2.THRESH_BINARY)
+    #ret, image = cv2.threshold(image_gray,192,255,cv2.THRESH_BINARY)
     #image = cv2.adaptiveThreshold(image_gray, 128, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 127,2)
 
     #
-    #image = image_orig
+    image = image_gray
 
 
 
@@ -179,7 +193,7 @@ while(cap.isOpened()):
     
     t0 = time()
     
-    orb = cv2.ORB_create(nfeatures=800, nlevels = 6, scaleFactor=1.2, patchSize=31, edgeThreshold=15, fastThreshold = 10)
+    orb = cv2.ORB_create(nfeatures=800, nlevels = 8, scaleFactor=1.2, patchSize=31, edgeThreshold=15, fastThreshold = 10)
     #orb = cv2.xfeatures2d.SIFT_create()
     kp = orb.detect(image, None)
     
@@ -208,7 +222,7 @@ while(cap.isOpened()):
     match_good = []
     
     for ind in xrange(len(matches)):
-        if matches[ind].distance > 65:
+        if matches[ind].distance > 50:
             match_good = matches[:ind]
             break
     
@@ -279,8 +293,8 @@ while(cap.isOpened()):
     #     image = cv2.circle(image, (int(k.pt[0]), int(k.pt[1])), int(k.size), (0,255,0,25),-1)    
 
 
-    img1 = cv2.drawKeypoints(image_orig,good_kp,None,color=(0,255,0), flags=4)
-    #img1 = cv2.drawKeypoints(image,kp,None,color=(0,255,0), flags=2)
+    #img1 = cv2.drawKeypoints(image_orig,good_kp,None,color=(0,255,0), flags=2)
+    img1 = cv2.drawKeypoints(image_orig,kp,None,color=(0,255,0), flags=2)
     
     #for cls in  cluster_centers:
     #    img1 = cv2.circle(img1, (int(cls[0]), int(cls[1])), 32, 255,)    
@@ -294,11 +308,11 @@ while(cap.isOpened()):
     
     #img3 = cv2.drawMatchesKnn(img2, kp, target_barcode, kp_target, [match_good], None, flags=2)
     
-    if output_folder is not None :
-        cv2.imwrite(output_folder+"/img%05d.jpg" % c, img3)
+    # if output_folder is not None :
+    #     cv2.imwrite(output_folder+"/img%05d.jpg" % c, img3)
     
-    else:
-        cv2.imshow("image", img3)
+    # else:
+    cv2.imshow("image", img3)
     
     t3 = time()
     
